@@ -13,8 +13,9 @@ This project demonstrates multi-agent reinforcement learning (MARL) on TurtleBot
 3. [Environment Configuration](#environment-configuration)
 4. [Setting Up Machine Learning](#setting-up-machine-learning)
 5. [Running the Project](#running-the-project)
-6. [Project Workflow](#project-workflow)
-7. [Troubleshooting](#troubleshooting)
+6. [Spawning Multiple agents](#spawning-multiple-agents)
+7. [Project Workflow](#project-workflow)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -139,3 +140,82 @@ ros2 run turtlebot3_dqn dqn_environment
 ros2 run turtlebot3_dqn dqn_agent 1
 ```
 
+## Spawning Multiple agents
+To spawn multiple TurtleBots in the Gazebo environment, the simulation file in the `turtlebot3_simulations` package was modified. The updated code allows multiple robots to be spawned in a grid layout. Below is the modified code:
+```python
+def generate_launch_description():
+    ld = LaunchDescription()
+
+    # Configuration for the TurtleBot3 model
+    TURTLEBOT3_MODEL = os.environ.get('TURTLEBOT3_MODEL', 'burger')
+    model_folder = 'turtlebot3_' + TURTLEBOT3_MODEL
+    urdf_path = os.path.join(
+        get_package_share_directory('turtlebot3_gazebo'),
+        'models',
+        model_folder,
+        'model.sdf'
+    )
+
+    # Variables for multiple robots
+    num_robots = 2  # Adjust the number of robots as needed
+    num_columns = 2  # Define how many robots in each row (columns)
+    x_start, y_start = 0, 0  # Starting positions for spawning
+    x_spacing, y_spacing = 2.0, 2.0  # Spacing between robots
+
+    last_action = None
+
+    for i in range(num_robots):
+        # Compute row and column for grid layout
+        row = i // num_columns
+        col = i % num_columns
+
+        # Unique name and namespace for each robot
+        name = f'turtlebot{i}'
+        namespace = f'/robot{i}'
+
+        # Compute the x and y positions for grid layout
+        x_position = x_start + col * x_spacing
+        y_position = y_start + row * y_spacing
+
+        # Spawn each TurtleBot3 robot at a different position
+        spawn_robot = Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            arguments=[
+                '-file', urdf_path,
+                '-entity', name,
+                '-robot_namespace', namespace,
+                '-x', str(x_position),
+                '-y', str(y_position),
+                '-z', '0.01'
+            ],
+            output='screen'
+        )
+
+        # Add the state publisher for each robot
+        state_publisher = Node(
+            package='robot_state_publisher',
+            namespace=namespace,
+            executable='robot_state_publisher',
+            output='screen',
+            arguments=[urdf_path]
+        )
+
+        # Handle sequential spawning to avoid conflicts
+        if last_action is None:
+            ld.add_action(spawn_robot)
+            ld.add_action(state_publisher)
+        else:
+            spawn_event = RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=last_action,
+                    on_exit=[spawn_robot, state_publisher]
+                )
+            )
+            ld.add_action(spawn_event)
+
+        # Set last action for sequential spawning
+        last_action = spawn_robot
+
+    return ld
+```
