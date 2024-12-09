@@ -48,3 +48,16 @@ sudo apt install ros-humble-cartographer-ros
 # Install Navigation2
 sudo apt install ros-humble-navigation2
 sudo apt install ros-humble-nav2-bringup
+```
+
+## TurtleBot3 Packages
+
+### Create a Workspace and Clone the TurtleBot3 Repositories
+To set up the TurtleBot3 packages, follow the steps below:
+
+```bash
+mkdir -p ~/turtlebot3_ws/src
+cd ~/turtlebot3_ws/src/
+git clone -b humble https://github.com/ROBOTIS-GIT/DynamixelSDK.git
+git clone -b humble https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
+git clone -b humble https://github.com/ROBOTIS-GIT/turtlebot3.git
