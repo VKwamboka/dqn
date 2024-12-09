@@ -75,13 +75,20 @@ echo 'source /usr/share/gazebo/setup.sh' >> ~/.bashrc
 source ~/.bashrc
 ```
 ## Setting Up Machine Learning
-1. Clone the turtlebot3_machine_learning repository:
+### 1. Clone the turtlebot3_machine_learning repository:
 ```bash
 git clone https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning.git
 ```
-2. Install Python libraries such as TensorFlow, Keras, and other dependencies using Anaconda or pip.
+### 2. Install Python Libraries
+Install necessary Python libraries such as TensorFlow, Keras, and other dependencies. You can use either Anaconda or pip for installation.
 
-3. Configure the reinforcement learning parameters. The default settings reward the agent for approaching the goal and penalize it for moving away or colliding with obstacles.
+### 3. Configure Reinforcement Learning Parameters
+Set the reinforcement learning parameters in the training script. By default:
+
+- The agent receives a positive reward for moving closer to the goal.
+- The agent receives a negative reward for moving away from the goal or colliding with obstacles.
+- A large positive reward is given when the agent reaches the goal.
+- A large negative reward is given upon collision with an obstacle.
 
 
 ## Running the Project
