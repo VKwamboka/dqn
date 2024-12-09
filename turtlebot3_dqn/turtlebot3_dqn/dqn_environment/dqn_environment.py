@@ -69,7 +69,7 @@ class DQNEnvironment(Node):
         # Initialise publishers
         # self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', qos)
         self.cmd_vel_pub = [
-            self.create_publisher(Twist, f'cmd_vel{i}', qos) for i in range(self.num_agents)
+            self.create_publisher(Twist, f'/robot{i}/cmd_vel', qos) for i in range(self.num_agents)
         ]
 
        
@@ -80,19 +80,19 @@ class DQNEnvironment(Node):
         #     self.goal_pose_callback,
         #     qos)
         self.goal_pose_subs = [
-            self.create_subscription(Pose, f'goal_pose{i}', self.goal_pose_callback, qos) for i in range(self.num_agents)
+            self.create_subscription(Pose, f'/goal_pose_{i}', self.goal_pose_callback, qos) for i in range(self.num_agents)
         ]
-        
+                
         # self.odom_sub = self.create_subscription(
         #     Odometry,
         #     'odom',
         #     self.odom_callback,
         #     qos)
-        self.odom_sub = self.create_subscription(
-            Odometry, '/robot0/odom', self.odom_callback, qos)
+        # self.odom_sub = self.create_subscription(
+        #     Odometry, '/robot0/odom', self.odom_callback, qos)
         
         self.odom_subs = [
-            self.create_subscription(Odometry, f'odom{i}', self.odom_callback, qos) for i in range(self.num_agents)
+            self.create_subscription(Odometry, f'/robot{i}/odom', self.odom_callback, qos) for i in range(self.num_agents)
         ]
         
 
@@ -103,27 +103,31 @@ class DQNEnvironment(Node):
         #     self.scan_callback,
         #     qos_profile=qos_profile_sensor_data)
         self.scan_subs = [
-            self.create_subscription(LaserScan, f'scan{i}', self.scan_callback, qos_profile=qos_profile_sensor_data) for i in range(self.num_agents)
+            self.create_subscription(LaserScan, f'/robot{i}/scan', self.scan_callback, qos) for i in range(self.num_agents)
         ]
 
         # Initialise client
         self.task_succeed_client = self.create_client(Empty, 'task_succeed')
-        self.scan_sub = self.create_subscription(
-            LaserScan,
-            'scan',
-            self.scan_callback,
-            qos_profile=qos_profile_sensor_data)
+        # self.scan_sub = self.create_subscription(
+        #     LaserScan,
+        #     'scan',
+        #     self.scan_callback,
+        #     qos_profile=qos_profile_sensor_data)
 
         # Initialise client
-        self.task_succeed_client = self.create_client(Empty, 'task_succeed')
+        # self.task_succeed_client = self.create_client(Empty, 'task_succeed')
         self.task_fail_client = self.create_client(Empty, 'task_fail')
 
         # Initialise servers
         # self.dqn_com_server = self.create_service(Dqn, 'dqn_com', self.dqn_com_callback)
+
+        # for i in range(self.num_agents):
+        #     service_name = f'dqn_com_agent_{i}'  # Unique service name per agent
+        #     callback = getattr(self, f'dqn_com_callback_agent_{i}')  
+        #     setattr(self, f'dqn_com_server_{i}', self.create_service(Dqn, service_name, callback))
         for i in range(self.num_agents):
-            service_name = f'dqn_com_agent_{i}'  # Unique service name per agent
-            callback = getattr(self, f'dqn_com_callback_agent_{i}')  
-            setattr(self, f'dqn_com_server_{i}', self.create_service(Dqn, service_name, callback))
+            self.create_service(Dqn, f'dqn_com_agent_{i}', lambda req, res: self.dqn_com_callback(req, res, i))
+
 
         
     """*******************************************************************************
@@ -161,99 +165,147 @@ class DQNEnvironment(Node):
         self.min_obstacle_distance = min(self.scan_ranges)
         self.min_obstacle_angle = numpy.argmin(self.scan_ranges)
 
-    def get_state(self):
+    # def get_state(self):
+    #     state = list()
+    #     state.append(float(self.goal_distance))
+    #     state.append(float(self.goal_angle))
+    #     state.append(float(self.min_obstacle_distance))
+    #     state.append(float(self.min_obstacle_angle))
+    #     self.local_step += 1
+
+    #     # Succeed
+    #     if self.goal_distance < 0.20:  # unit: m
+    #         print("Goal! :)")
+    #         self.succeed = True
+    #         self.done = True
+    #         self.cmd_vel_pub.publish(Twist())  # robot stop
+    #         self.local_step = 0
+    #         req = Empty.Request()
+    #         while not self.task_succeed_client.wait_for_service(timeout_sec=1.0):
+    #             self.get_logger().info('service not available, waiting again...')
+    #         self.task_succeed_client.call_async(req)
+
+    #     # Fail
+    #     if self.min_obstacle_distance < 0.13:  # unit: m
+    #         print("Collision! :(")
+    #         self.fail = True
+    #         self.done = True
+    #         self.cmd_vel_pub.publish(Twist())  # robot stop
+    #         self.local_step = 0
+    #         req = Empty.Request()
+    #         while not self.task_fail_client.wait_for_service(timeout_sec=1.0):
+    #             self.get_logger().info('service not available, waiting again...')
+    #         self.task_fail_client.call_async(req)
+
+    #     if self.local_step == 500:
+    #         print("Time out! :(")
+    #         self.done = True
+    #         self.local_step = 0
+    #         req = Empty.Request()
+    #         while not self.task_fail_client.wait_for_service(timeout_sec=1.0):
+    #             self.get_logger().info('service not available, waiting again...')
+    #         self.task_fail_client.call_async(req)
+
+    #     return state
+
+    # def reset(self):
+    #     return self.state
+    
+    def get_state(self, agent_index):
+        # Initialize the state for the specific agent
         state = list()
-        state.append(float(self.goal_distance))
-        state.append(float(self.goal_angle))
-        state.append(float(self.min_obstacle_distance))
-        state.append(float(self.min_obstacle_angle))
-        self.local_step += 1
+        state.append(float(self.goal_distance[agent_index]))
+        state.append(float(self.goal_angle[agent_index]))
+        state.append(float(self.min_obstacle_distance[agent_index]))
+        state.append(float(self.min_obstacle_angle[agent_index]))
+        self.local_step[agent_index] += 1
 
         # Succeed
-        if self.goal_distance < 0.20:  # unit: m
-            print("Goal! :)")
-            self.succeed = True
-            self.done = True
-            self.cmd_vel_pub.publish(Twist())  # robot stop
-            self.local_step = 0
+        if self.goal_distance[agent_index] < 0.20:  # unit: m
+            print(f"Agent {agent_index} reached the goal! :)")
+            self.succeed[agent_index] = True
+            self.done[agent_index] = True
+            self.cmd_vel_pub[agent_index].publish(Twist())  # Stop the robot
+            self.local_step[agent_index] = 0
             req = Empty.Request()
-            while not self.task_succeed_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('service not available, waiting again...')
-            self.task_succeed_client.call_async(req)
+            while not self.task_succeed_client[agent_index].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(f'Service for agent {agent_index} not available, waiting again...')
+            self.task_succeed_client[agent_index].call_async(req)
 
         # Fail
-        if self.min_obstacle_distance < 0.13:  # unit: m
-            print("Collision! :(")
-            self.fail = True
-            self.done = True
-            self.cmd_vel_pub.publish(Twist())  # robot stop
-            self.local_step = 0
+        if self.min_obstacle_distance[agent_index] < 0.13:  # unit: m
+            print(f"Agent {agent_index} encountered a collision! :(")
+            self.fail[agent_index] = True
+            self.done[agent_index] = True
+            self.cmd_vel_pub[agent_index].publish(Twist())  # Stop the robot
+            self.local_step[agent_index] = 0
             req = Empty.Request()
-            while not self.task_fail_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('service not available, waiting again...')
-            self.task_fail_client.call_async(req)
+            while not self.task_fail_client[agent_index].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(f'Service for agent {agent_index} not available, waiting again...')
+            self.task_fail_client[agent_index].call_async(req)
 
-        if self.local_step == 500:
-            print("Time out! :(")
-            self.done = True
-            self.local_step = 0
+        # Timeout
+        if self.local_step[agent_index] == 500:
+            print(f"Agent {agent_index} timed out! :(")
+            self.done[agent_index] = True
+            self.local_step[agent_index] = 0
             req = Empty.Request()
-            while not self.task_fail_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('service not available, waiting again...')
-            self.task_fail_client.call_async(req)
+            while not self.task_fail_client[agent_index].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(f'Service for agent {agent_index} not available, waiting again...')
+            self.task_fail_client[agent_index].call_async(req)
 
         return state
 
-    def reset(self):
-        return self.state
+    def reset(self, agent_index):
+        return self.get_state(agent_index)
     
-    def dqn_com_callback_agent_0(self, request, response):
-        action = request.action
-        twist = Twist()
-        twist.linear.x = 0.3
-        twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
-        self.cmd_vel_pub[0].publish(twist)  # Agent 0's command velocity
+    # def dqn_com_callback_agent_0(self, request, response):
+    #     action = request.action
+    #     twist = Twist()
+    #     twist.linear.x = 0.3
+    #     twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
+    #     self.cmd_vel_pub[0].publish(twist)  # Agent 0's command velocity
 
-        response.state = self.get_state()
-        response.reward = self.get_reward(action)
-        response.done = self.done
+    #     response.state = self.get_state()
+    #     response.reward = self.get_reward(action)
+    #     response.done = self.done
 
-        if self.done is True:
-            self.done = False
-            self.succeed = False
-            self.fail = False
+    #     if self.done is True:
+    #         self.done = False
+    #         self.succeed = False
+    #         self.fail = False
 
-        if request.init is True:
-            self.init_goal_distance = math.sqrt(
-                (self.goal_pose_x - self.last_pose_x) ** 2
-                + (self.goal_pose_y - self.last_pose_y) ** 2
-            )
+    #     if request.init is True:
+    #         self.init_goal_distance = math.sqrt(
+    #             (self.goal_pose_x - self.last_pose_x) ** 2
+    #             + (self.goal_pose_y - self.last_pose_y) ** 2
+    #         )
 
-        return response
+    #     return response
 
-    def dqn_com_callback_agent_1(self, request, response):
-        action = request.action
-        twist = Twist()
-        twist.linear.x = 0.3
-        twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
-        self.cmd_vel_pub[1].publish(twist)  # Agent 1's command velocity
+    # def dqn_com_callback_agent_1(self, request, response):
+    #     action = request.action
+    #     twist = Twist()
+    #     twist.linear.x = 0.3
+    #     twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
+    #     self.cmd_vel_pub[1].publish(twist)  # Agent 1's command velocity
 
-        response.state = self.get_state()
-        response.reward = self.get_reward(action)
-        response.done = self.done
+    #     response.state = self.get_state()
+    #     response.reward = self.get_reward(action)
+    #     response.done = self.done
 
-        if self.done is True:
-            self.done = False
-            self.succeed = False
-            self.fail = False
+    #     if self.done is True:
+    #         self.done = False
+    #         self.succeed = False
+    #         self.fail = False
 
-        if request.init is True:
-            self.init_goal_distance = math.sqrt(
-                (self.goal_pose_x - self.last_pose_x) ** 2
-                + (self.goal_pose_y - self.last_pose_y) ** 2
-            )
+    #     if request.init is True:
+    #         self.init_goal_distance = math.sqrt(
+    #             (self.goal_pose_x - self.last_pose_x) ** 2
+    #             + (self.goal_pose_y - self.last_pose_y) ** 2
+    #         )
 
-        return response
+    #     return response
 
 
     # def dqn_com_callback(self, request, response):
@@ -287,6 +339,36 @@ class DQNEnvironment(Node):
     #         )
 
     #     return response
+    
+    def dqn_com_callback(self, request, response, agent_index):
+        action = request.action
+
+        # Publish velocity for the specific agent
+        twist = Twist()
+        twist.linear.x = 0.3
+        twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
+        self.cmd_vel_pub[agent_index].publish(twist)
+
+        # Update state and reward for the specific agent
+        response.state = self.get_state(agent_index)
+        response.reward = self.get_reward(action, agent_index)
+        response.done = self.done[agent_index]
+
+        # Reset conditions if needed
+        if self.done[agent_index]:
+            self.done[agent_index] = False
+            self.succeed[agent_index] = False
+            self.fail[agent_index] = False
+
+        # Initialize goal distance for the agent
+        if request.init:
+            self.init_goal_distance[agent_index] = math.sqrt(
+                (self.goal_pose_x[agent_index] - self.last_pose_x[agent_index]) ** 2 +
+                (self.goal_pose_y[agent_index] - self.last_pose_y[agent_index]) ** 2
+            )
+
+        return response
+
 
 
     def get_reward(self, action):
