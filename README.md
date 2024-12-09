@@ -66,3 +66,22 @@ cd ~/turtlebot3_ws
 colcon build --symlink-install
 echo 'source ~/turtlebot3_ws/install/setup.bash' >> ~/.bashrc
 source ~/.bashrc
+```
+## Environment Configuration
+Set up the ROS environment:
+```bash
+echo 'export ROS_DOMAIN_ID=30 #TURTLEBOT3' >> ~/.bashrc
+echo 'source /usr/share/gazebo/setup.sh' >> ~/.bashrc
+source ~/.bashrc
+```
+## Setting Up Machine Learning
+1. Clone the turtlebot3_machine_learning repository:
+```bash
+git clone https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning.git
+```
+2. Install Python libraries such as TensorFlow, Keras, and other dependencies using Anaconda or pip.
+
+3. Configure the reinforcement learning parameters. The default settings reward the agent for approaching the goal and penalize it for moving away or colliding with obstacles.
+
+
+
