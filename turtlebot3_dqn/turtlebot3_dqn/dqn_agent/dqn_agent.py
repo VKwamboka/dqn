@@ -75,7 +75,8 @@ class DQNAgent(Node):
         self.load_model = False
         # self.load_episode = 1210   #model 4
         # self.load_episode =230 #model 1
-        self.load_episode = 280
+        # self.load_episode = 340 #model 2
+        self.load_episode = 60 #model 3
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_agent',
@@ -105,7 +106,12 @@ class DQNAgent(Node):
         ** Initialise ROS clients
         ************************************************************"""
         # Initialise clients
-        self.dqn_com_client = self.create_client(Dqn, 'dqn_com')
+        self.dqn_com_client = self.create_client(Dqn, 'dqn_com_agent_0')
+        # self.dqn_com_client1 = self.create_client(Dqn, 'dqn_com_agent_1')
+#         self.dqn_com_clients = [
+#     self.create_client(Dqn, f'dqn_com_agent_{i}') for i in range(num_agents)
+# ]
+
 
         """************************************************************
         ** Start process

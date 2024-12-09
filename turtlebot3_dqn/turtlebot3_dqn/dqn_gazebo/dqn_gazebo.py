@@ -30,146 +30,131 @@ from std_srvs.srv import Empty
 
 
 class DQNGazebo(Node):
-    def __init__(self, stage):
+    def __init__(self, stage, num_agents=2):
         super().__init__('dqn_gazebo')
 
         """************************************************************
         ** Initialise variables
         ************************************************************"""
-        # Stage
-        self.stage = int(stage)        
+        self.stage = int(stage)
+        self.num_agents = num_agents
 
         def get_package_share_directory(package_name):
             from ament_index_python.packages import get_package_share_directory as get_pkg_share_dir
             return get_pkg_share_dir(package_name)
 
-
-        # Entity 'goal'
-        # self.entity_dir_path = os.path.dirname(os.path.realpath(__file__))
-        # self.entity_dir_path = self.entity_dir_path.replace(
-        #     'turtlebot3_machine_learning/turtlebot3_dqn/turtlebot3_dqn/dqn_gazebo',
-        #     'turtlebot3_simulations/turtlebot3_gazebo/models/turtlebot3_dqn_world/goal_box')
-        # self.entity_path = os.path.join(self.entity_dir_path, 'model.sdf')
-        # self.entity = open(self.entity_path, 'r').read()
+        # Path to goal model
         self.entity_dir_path = os.path.join(
-            get_package_share_directory('turtlebot3_gazebo'),  # Update package name if needed
+            get_package_share_directory('turtlebot3_gazebo'),
             'models/turtlebot3_dqn_world/goal_box'
         )
         self.entity_path = os.path.join(self.entity_dir_path, 'model.sdf')
         self.entity = open(self.entity_path, 'r').read()
-        self.entity_name = 'goal'
 
-        self.goal_pose_x = 0.5
-        self.goal_pose_y = 0.0
+        # Store goal positions and entity names for each agent
+        self.goal_poses = [{"x": 0.5, "y": 0.0} for _ in range(num_agents)]
+        self.entity_names = [f"goal_{i}" for i in range(num_agents)]
 
         self.init_state = False
 
         """************************************************************
-        ** Initialise ROS publishers, subscribers and clients
+        ** Initialise ROS publishers, subscribers, and clients
         ************************************************************"""
         qos = QoSProfile(depth=10)
 
-        # Initialise publishers
-        self.goal_pose_pub = self.create_publisher(Pose, 'goal_pose', qos)
+        # Publishers
+        self.goal_pose_pub = [
+            self.create_publisher(Pose, f'goal_pose_{i}', qos) for i in range(num_agents)
+        ]
 
-        # Initialise client
+        # Clients
         self.delete_entity_client = self.create_client(DeleteEntity, 'delete_entity')
         self.spawn_entity_client = self.create_client(SpawnEntity, 'spawn_entity')
         self.reset_simulation_client = self.create_client(Empty, 'reset_simulation')
 
-        # Initialise servers
+        # Servers
         self.task_succeed_server = self.create_service(
             Empty,
             'task_succeed',
             self.task_succeed_callback)
         self.task_fail_server = self.create_service(Empty, 'task_fail', self.task_fail_callback)
 
-        # Process
-        self.publish_timer = self.create_timer(
-            0.010,  # unit: s
-            self.publish_callback)
+        # Timer
+        self.publish_timer = self.create_timer(0.010, self.publish_callback)
 
     """*******************************************************************************
     ** Callback functions and relevant functions
     *******************************************************************************"""
     def publish_callback(self):
-        # Init
-        if self.init_state is False:
-            self.delete_entity()
+        # Initialize state if not done already
+        if not self.init_state:
+            self.delete_entities()
             self.reset_simulation()
             self.init_state = True
-            print("init!!!")
-            print("Goal pose: ", self.goal_pose_x, self.goal_pose_y)
+            print("Initialized environment with multiple agents and goals.")
 
-        # Publish goal pose
-        goal_pose = Pose()
-        goal_pose.position.x = self.goal_pose_x
-        goal_pose.position.y = self.goal_pose_y
-        self.goal_pose_pub.publish(goal_pose)
-        self.spawn_entity()
+        # Publish goal poses and spawn entities
+        for i in range(self.num_agents):
+            goal_pose = Pose()
+            goal_pose.position.x = self.goal_poses[i]["x"]
+            goal_pose.position.y = self.goal_poses[i]["y"]
+            self.goal_pose_pub[i].publish(goal_pose)
+            print(f"Publishing goal for agent {i}: {goal_pose.position.x}, {goal_pose.position.y}")
+            self.spawn_entity(self.entity_names[i], goal_pose)
 
     def task_succeed_callback(self, request, response):
-        self.delete_entity()
-        # new
-        # self.reset_simulation()
-        self.generate_goal_pose()
-        print("generate a new goal :)", self.goal_pose_x, self.goal_pose_y)
+        self.delete_entities()
+        self.generate_goal_poses()
+        print("Generated new goals for all agents.")
 
         return response
 
     def task_fail_callback(self, request, response):
-        self.delete_entity()
+        self.delete_entities()
         self.reset_simulation()
-        self.generate_goal_pose()
-        print("reset the gazebo environment :(")
+        self.generate_goal_poses()
+        print("Reset the gazebo environment and generated new goals.")
 
         return response
 
-    def generate_goal_pose(self):
-        if self.stage != 4:
-            self.goal_pose_x = random.randrange(-15, 16) / 10.0
-            self.goal_pose_y = random.randrange(-15, 16) / 10.0
-        else:
-            goal_pose_list = [[1.0, 0.0], [2.0, -1.5], [0.0, -2.0], [2.0, 2.0], [0.8, 2.0],
-                              [-1.9, 1.9], [-1.9, 0.2], [-1.9, -0.5], [-2.0, -2.0], [-0.5, -1.0]]
-            index = random.randrange(0, 10)
-            self.goal_pose_x = goal_pose_list[index][0]
-            self.goal_pose_y = goal_pose_list[index][1]
-            print("Goal pose: ", self.goal_pose_x, self.goal_pose_y)
+    def generate_goal_poses(self):
+        # Generate unique random positions for each goal
+        for i in range(self.num_agents):
+            self.goal_poses[i] = {
+                "x": random.uniform(-1.5, 1.5),
+                "y": random.uniform(-1.5, 1.5)
+            }
+        print("New goal poses:", self.goal_poses)
 
     def reset_simulation(self):
         req = Empty.Request()
         while not self.reset_simulation_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
-
         self.reset_simulation_client.call_async(req)
 
-    def delete_entity(self):
-        req = DeleteEntity.Request()
-        req.name = self.entity_name
-        while not self.delete_entity_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service not available, waiting again...')
+    def delete_entities(self):
+        for name in self.entity_names:
+            req = DeleteEntity.Request()
+            req.name = name
+            while not self.delete_entity_client.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info('service not available, waiting again...')
+            self.delete_entity_client.call_async(req)
 
-        self.delete_entity_client.call_async(req)
-
-    def spawn_entity(self):
-        goal_pose = Pose()
-        goal_pose.position.x = self.goal_pose_x
-        goal_pose.position.y = self.goal_pose_y
+    def spawn_entity(self, entity_name, pose):
         req = SpawnEntity.Request()
-        req.name = self.entity_name
+        req.name = entity_name
         req.xml = self.entity
-        req.initial_pose = goal_pose
+        req.initial_pose = pose
         while not self.spawn_entity_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
-
         self.spawn_entity_client.call_async(req)
 
 
 def main(args=sys.argv[1:]):
     rclpy.init(args=args)
-    stage = args[0] if args else "1"
-    dqn_gazebo = DQNGazebo(stage)
+    stage = args[0] if len(args) > 0 else "1"
+    num_agents = int(args[1]) if len(args) > 1 else 1
+    dqn_gazebo = DQNGazebo(stage, num_agents)
     rclpy.spin(dqn_gazebo)
 
     dqn_gazebo.destroy()

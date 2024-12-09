@@ -16,6 +16,7 @@
 #
 # Authors: Ryan Shim, Gilbert
 
+
 import math
 import numpy
 
@@ -33,7 +34,7 @@ from turtlebot3_msgs.srv import Dqn
 
 
 class DQNEnvironment(Node):
-    def __init__(self):
+    def __init__(self, num_agents = 2):
         super().__init__('dqn_environment')
 
         """************************************************************
@@ -44,6 +45,7 @@ class DQNEnvironment(Node):
         self.last_pose_x = 0.0
         self.last_pose_y = 0.0
         self.last_pose_theta = 0.0
+        self.num_agents = num_agents
 
         self.action_size = 5
         self.done = False
@@ -65,19 +67,47 @@ class DQNEnvironment(Node):
         qos = QoSProfile(depth=10)
 
         # Initialise publishers
-        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', qos)
+        # self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', qos)
+        self.cmd_vel_pub = [
+            self.create_publisher(Twist, f'cmd_vel{i}', qos) for i in range(self.num_agents)
+        ]
 
+       
         # Initialise subscribers
-        self.goal_pose_sub = self.create_subscription(
-            Pose,
-            'goal_pose',
-            self.goal_pose_callback,
-            qos)
+        # self.goal_pose_sub = self.create_subscription(
+        #     Pose,
+        #     'goal_pose',
+        #     self.goal_pose_callback,
+        #     qos)
+        self.goal_pose_subs = [
+            self.create_subscription(Pose, f'goal_pose{i}', self.goal_pose_callback, qos) for i in range(self.num_agents)
+        ]
+        
+        # self.odom_sub = self.create_subscription(
+        #     Odometry,
+        #     'odom',
+        #     self.odom_callback,
+        #     qos)
         self.odom_sub = self.create_subscription(
-            Odometry,
-            'odom',
-            self.odom_callback,
-            qos)
+            Odometry, '/robot0/odom', self.odom_callback, qos)
+        
+        self.odom_subs = [
+            self.create_subscription(Odometry, f'odom{i}', self.odom_callback, qos) for i in range(self.num_agents)
+        ]
+        
+
+        self.get_logger().info(f"Subscribed to goal_pose topics for {self.num_agents} agents.")
+        # self.scan_sub = self.create_subscription(
+        #     LaserScan,
+        #     'scan',
+        #     self.scan_callback,
+        #     qos_profile=qos_profile_sensor_data)
+        self.scan_subs = [
+            self.create_subscription(LaserScan, f'scan{i}', self.scan_callback, qos_profile=qos_profile_sensor_data) for i in range(self.num_agents)
+        ]
+
+        # Initialise client
+        self.task_succeed_client = self.create_client(Empty, 'task_succeed')
         self.scan_sub = self.create_subscription(
             LaserScan,
             'scan',
@@ -89,8 +119,13 @@ class DQNEnvironment(Node):
         self.task_fail_client = self.create_client(Empty, 'task_fail')
 
         # Initialise servers
-        self.dqn_com_server = self.create_service(Dqn, 'dqn_com', self.dqn_com_callback)
+        # self.dqn_com_server = self.create_service(Dqn, 'dqn_com', self.dqn_com_callback)
+        for i in range(self.num_agents):
+            service_name = f'dqn_com_agent_{i}'  # Unique service name per agent
+            callback = getattr(self, f'dqn_com_callback_agent_{i}')  
+            setattr(self, f'dqn_com_server_{i}', self.create_service(Dqn, service_name, callback))
 
+        
     """*******************************************************************************
     ** Callback functions and relevant functions
     *******************************************************************************"""
@@ -171,13 +206,13 @@ class DQNEnvironment(Node):
 
     def reset(self):
         return self.state
-
-    def dqn_com_callback(self, request, response):
+    
+    def dqn_com_callback_agent_0(self, request, response):
         action = request.action
         twist = Twist()
         twist.linear.x = 0.3
-        twist.angular.z = ((self.action_size - 1)/2 - action) * 1.5
-        self.cmd_vel_pub.publish(twist)
+        twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
+        self.cmd_vel_pub[0].publish(twist)  # Agent 0's command velocity
 
         response.state = self.get_state()
         response.reward = self.get_reward(action)
@@ -190,10 +225,69 @@ class DQNEnvironment(Node):
 
         if request.init is True:
             self.init_goal_distance = math.sqrt(
-                (self.goal_pose_x-self.last_pose_x)**2
-                + (self.goal_pose_y-self.last_pose_y)**2)
+                (self.goal_pose_x - self.last_pose_x) ** 2
+                + (self.goal_pose_y - self.last_pose_y) ** 2
+            )
 
         return response
+
+    def dqn_com_callback_agent_1(self, request, response):
+        action = request.action
+        twist = Twist()
+        twist.linear.x = 0.3
+        twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
+        self.cmd_vel_pub[1].publish(twist)  # Agent 1's command velocity
+
+        response.state = self.get_state()
+        response.reward = self.get_reward(action)
+        response.done = self.done
+
+        if self.done is True:
+            self.done = False
+            self.succeed = False
+            self.fail = False
+
+        if request.init is True:
+            self.init_goal_distance = math.sqrt(
+                (self.goal_pose_x - self.last_pose_x) ** 2
+                + (self.goal_pose_y - self.last_pose_y) ** 2
+            )
+
+        return response
+
+
+    # def dqn_com_callback(self, request, response):
+    #     action = request.action
+    #     twist = Twist()
+    #     twist.linear.x = 0.3
+    #     twist.angular.z = ((self.action_size - 1) / 2 - action) * 1.5
+
+    #     # Get the agent_index from the request to determine which agent is calling
+    #     agent_index = request.agent_index  # This should be part of the request
+
+    #     # Publish the command velocity to the correct agent's cmd_vel
+    #     self.cmd_vel_pub[agent_index].publish(twist)
+
+    #     # Update the state, reward, and done status for the agent
+    #     response.state = self.get_state()
+    #     response.reward = self.get_reward(action)
+    #     response.done = self.done
+
+    #     # Reset conditions if the task is done
+    #     if self.done is True:
+    #         self.done = False
+    #         self.succeed = False
+    #         self.fail = False
+
+    #     # Initialize the goal distance if required
+    #     if request.init is True:
+    #         self.init_goal_distance = math.sqrt(
+    #             (self.goal_pose_x - self.last_pose_x) ** 2
+    #             + (self.goal_pose_y - self.last_pose_y) ** 2
+    #         )
+
+    #     return response
+
 
     def get_reward(self, action):
         yaw_reward = 1 - 2*math.sqrt(math.fabs(self.goal_angle / math.pi))
