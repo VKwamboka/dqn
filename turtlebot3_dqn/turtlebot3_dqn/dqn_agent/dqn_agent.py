@@ -29,6 +29,7 @@ import os
 import random
 import sys
 import time
+import logging
 
 
 
@@ -41,6 +42,12 @@ from turtlebot3_msgs.srv import Dqn
 class DQNAgent(Node):
     def __init__(self, stage):
         super().__init__('dqn_agent')
+        log_directory = "/home/kwamboka/dqn_ws/src/turtlebot3_machine_learning/turtlebot3_dqn/"
+        log_filename = 'simulation_results.log'
+        log_file_path = os.path.join(log_directory, log_filename)
+        logging.basicConfig(filename=log_file_path, level=logging.INFO)
+
+        # logging.basicConfig(filename='simulation_results.log', level=logging.INFO)
 
         """************************************************************
         ** Initialise variables
@@ -70,12 +77,13 @@ class DQNAgent(Node):
         self.target_model = self.build_model()
         self.update_target_model()
         self.update_target_model_start = 2000
+        
 
         # Load saved models
         self.load_model = False
         # self.load_episode = 1210   #model 4
         # self.load_episode =230 #model 1
-        self.load_episode = 280
+        self.load_episode = 340
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_agent',
@@ -115,6 +123,10 @@ class DQNAgent(Node):
     """*******************************************************************************
     ** Callback functions and relevant functions
     *******************************************************************************"""
+    def log_data(self, episode, score, epsilon):
+        """Log the episode performance data."""
+        logging.info(f"Episode: {episode}, Score: {score}, Epsilon: {epsilon}")
+
     def process(self):
         global_step = 0
 
@@ -189,6 +201,8 @@ class DQNAgent(Node):
                         param_keys = ['epsilon']
                         param_values = [self.epsilon]
                         param_dictionary = dict(zip(param_keys, param_values))
+                        # Log data for each episode
+                        self.log_data(episode, score, self.epsilon)
 
                 # While loop rate
                 time.sleep(0.01)
@@ -243,6 +257,7 @@ class DQNAgent(Node):
 
     def append_sample(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
+        
 
     def train_model(self, target_train_start=False):
         mini_batch = random.sample(self.memory, self.batch_size)
