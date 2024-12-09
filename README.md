@@ -219,3 +219,53 @@ def generate_launch_description():
 
     return ld
 ```
+## Loading the Trained Model to New Agents
+
+In multi-agent reinforcement learning, once an agent is trained in the environment, the learned model can be reused for additional agents being added to the environment. This process helps in transferring knowledge, speeding up the training process, and ensuring that new agents start with a baseline understanding of the task.
+
+### Concept Overview
+
+1. **Pre-Trained Model**:
+   - The trained model from a single agent is a neural network that has learned to map the agent's state to optimal actions for achieving the goal.
+   - This model includes parameters (weights and biases) that represent the agent's policy for navigating the environment.
+
+2. **New Agents**:
+   - When new agents are introduced to the environment, they can start with the pre-trained model instead of learning from scratch.
+   - This ensures that the new agents have a functional policy that allows them to perform basic navigation and task completion.
+
+3. **Benefits**:
+   - **Faster Training**: New agents already have a foundation to build upon, reducing the time needed for them to learn complex behaviors.
+   - **Consistency**: Ensures all agents operate under a similar policy, reducing variability in behavior.
+   - **Scalability**: Facilitates the addition of more agents without significant computational overhead for training.
+
+### Steps for Loading the Trained Model
+
+1. **Save the Trained Model**:
+   - After training the first agent, save the model's weights to a file (e.g., `trained_model.h5`).
+
+2. **Load the Model for New Agents**:
+   - In the environment setup for new agents, load the saved model weights into the neural network.
+   - This can be achieved using frameworks like TensorFlow or PyTorch. For example:
+     ```python
+     from tensorflow.keras.models import load_model
+
+     # Load the trained model
+     model = load_model('trained_model.h5')
+     ```
+
+3. **Assign the Model to New Agents**:
+   - Initialize the new agents with the loaded model, enabling them to start using the pre-trained policy.
+
+4. **Fine-Tuning (Optional)**:
+   - Allow new agents to continue learning in the environment to adapt to any changes or additional complexities introduced with more agents.
+
+### Application in the TurtleBot3 Multi-Agent Environment
+
+- **Single-Agent Training**:
+  - Train a single TurtleBot3 in the environment using stages (e.g., plain, static obstacles, moving obstacles, combined obstacles).
+  - Save the trained model after successful training.
+
+- **Adding New Agents**:
+  - When introducing additional TurtleBots, initialize their neural networks with the saved model.
+  - Launch the multi-agent environment and assign the loaded model to the new agents.
+
