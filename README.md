@@ -84,4 +84,51 @@ git clone https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning.git
 3. Configure the reinforcement learning parameters. The default settings reward the agent for approaching the goal and penalize it for moving away or colliding with obstacles.
 
 
+## Running the Project
+### Training a Single Agent
+
+The training process is divided into four stages, each introducing increasing levels of complexity to the environment:
+1. **Stage 1**: Plain environment without obstacles.
+2. **Stage 2**: Environment with static obstacles.
+3. **Stage 3**: Environment with moving obstacles.
+4. **Stage 4**: Environment with both static and moving obstacles.
+
+## Training in Stage 3 (Example)
+To train the agent in Stage 3, follow the steps below:
+
+### 1. Launch the Gazebo Environment
+Start the Gazebo simulation for Stage 3:
+```bash
+ros2 launch turtlebot3_gazebo turtlebot3_dqn_stage3.launch.py
+```
+### 2. Spawning Goals in Gazebo
+To spawn goals in the Gazebo environment for the TurtleBot3 training, use the following command:
+
+```bash
+ros2 run turtlebot3_dqn dqn_gazebo 3
+```
+The number 3 specifies the stage in which the goals are being spawned. Replace 3 with:
+1 for Stage 1 (plain environment).
+2 for Stage 2 (static obstacles).
+3 for Stage 3 (moving obstacles).
+4 for Stage 4 (combined moving and static obstacles).
+
+### 3. Launch the DQN Environment
+Start the DQN environment:
+```bash
+ros2 run turtlebot3_dqn dqn_environment
+```
+### 4. Start the DQN Agent
+Begin training the agent in Stage 3:
+```bash
+ros2 run turtlebot3_dqn dqn_agent 3
+```
+### Training in Other Stages
+To train in other stages, replace 3 with the desired stage number (1, 2, or 4) in the commands above. For example, to train in Stage 1:
+```bash
+ros2 launch turtlebot3_gazebo turtlebot3_dqn_stage1.launch.py
+ros2 run turtlebot3_dqn dqn_gazebo 1
+ros2 run turtlebot3_dqn dqn_environment
+ros2 run turtlebot3_dqn dqn_agent 1
+```
 
