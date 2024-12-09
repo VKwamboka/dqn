@@ -83,7 +83,7 @@ class DQNAgent(Node):
         self.load_model = False
         # self.load_episode = 1210   #model 4
         # self.load_episode =230 #model 1
-        self.load_episode = 340
+        self.load_episode = 400
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_agent',

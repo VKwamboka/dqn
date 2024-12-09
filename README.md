@@ -1,46 +1,50 @@
-# TurtleBot3
-<img src="https://github.com/ROBOTIS-GIT/emanual/blob/master/assets/images/platform/turtlebot3/logo_turtlebot3.png" width="300">
+# Multi-Agent Reinforcement Learning for TurtleBot3 Using ROS2 Humble and Gazebo
 
-## ROS Packages for TurtleBot3 Machine Learning
-|Version|Kinetic + Ubuntu Xenial|Melodic + Ubuntu Bionic|
-|:---:|:---:|:---:|
-|[![GitHub version](https://badge.fury.io/gh/ROBOTIS-GIT%2Fturtlebot3_machine_learning.svg)](https://badge.fury.io/gh/ROBOTIS-GIT%2Fturtlebot3_machine_learning)|[![Build Status](https://travis-ci.org/ROBOTIS-GIT/turtlebot3_machine_learning.svg?branch=kinetic-devel)](https://travis-ci.org/ROBOTIS-GIT/turtlebot3_machine_learning)|[![Build Status](https://travis-ci.org/ROBOTIS-GIT/turtlebot3_machine_learning.svg?branch=melodic-devel)](https://travis-ci.org/ROBOTIS-GIT/turtlebot3_machine_learning)|
+## Overview
+This project demonstrates multi-agent reinforcement learning (MARL) on TurtleBot3 robots in a ROS2 Humble and Gazebo environment. The workflow includes training a single TurtleBot agent using reinforcement learning (DQN) and then extending the model to multiple agents.
 
-## ROBOTIS e-Manual for TurtleBot3
-- [ROBOTIS e-Manual for TurtleBot3](http://turtlebot3.robotis.com/)
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [Installation](#installation)
+    - [Ubuntu Installation](#ubuntu-installation)
+    - [ROS2 Installation](#ros2-installation)
+    - [Dependent ROS2 Packages](#dependent-ros2-packages)
+    - [TurtleBot3 Packages](#turtlebot3-packages)
+3. [Environment Configuration](#environment-configuration)
+4. [Setting Up Machine Learning](#setting-up-machine-learning)
+5. [Running the Project](#running-the-project)
+6. [Project Workflow](#project-workflow)
+7. [Troubleshooting](#troubleshooting)
 
-## Wiki for turtlebot3_machine_learning Packages
-- http://wiki.ros.org/turtlebot3_machine_learning (metapackage)
-- http://wiki.ros.org/turtlebot3_dqn
+---
 
-## Open Source related to TurtleBot3
-- [turtlebot3](https://github.com/ROBOTIS-GIT/turtlebot3)
-- [turtlebot3_msgs](https://github.com/ROBOTIS-GIT/turtlebot3_msgs)
-- [turtlebot3_simulations](https://github.com/ROBOTIS-GIT/turtlebot3_simulations)
-- [turtlebot3_applications_msgs](https://github.com/ROBOTIS-GIT/turtlebot3_applications_msgs)
-- [turtlebot3_applications](https://github.com/ROBOTIS-GIT/turtlebot3_applications)
-- [turtlebot3_autorace](https://github.com/ROBOTIS-GIT/turtlebot3_autorace)
-- [turtlebot3_deliver](https://github.com/ROBOTIS-GIT/turtlebot3_deliver)
-- [turtlebot3_machine_learning](https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning)
-- [hls_lfcd_lds_driver](https://github.com/ROBOTIS-GIT/hls_lfcd_lds_driver)
-- [open_manipulator_msgs](https://github.com/ROBOTIS-GIT/open_manipulator_msgs)
-- [open_manipulator](https://github.com/ROBOTIS-GIT/open_manipulator)
-- [open_manipulator_simulations](https://github.com/ROBOTIS-GIT/open_manipulator_simulations)
-- [open_manipulator_perceptions](https://github.com/ROBOTIS-GIT/open_manipulator_perceptions)
-- [open_manipulator_with_tb3_msgs](https://github.com/ROBOTIS-GIT/open_manipulator_with_tb3_msgs)
-- [open_manipulator_with_tb3](https://github.com/ROBOTIS-GIT/open_manipulator_with_tb3)
-- [open_manipulator_with_tb3_simulations](https://github.com/ROBOTIS-GIT/open_manipulator_with_tb3_simulations)
-- [dynamixel_sdk](https://github.com/ROBOTIS-GIT/DynamixelSDK)
-- [dynamixel_workbench](https://github.com/ROBOTIS-GIT/dynamixel-workbench)
-- [OpenCR-Hardware](https://github.com/ROBOTIS-GIT/OpenCR-Hardware)
-- [OpenCR](https://github.com/ROBOTIS-GIT/OpenCR)
+## Prerequisites
+- A PC with Ubuntu 22.04 LTS Desktop installed.
+- Basic knowledge of ROS2, Gazebo, and Python.
+- Familiarity with reinforcement learning concepts.
 
-## Documents and Videos related to TurtleBot3
-- [ROBOTIS e-Manual for TurtleBot3](http://turtlebot3.robotis.com/)
-- [ROBOTIS e-Manual for OpenManipulator](http://emanual.robotis.com/docs/en/platform/openmanipulator/)
-- [ROBOTIS e-Manual for Dynamixel SDK](http://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_sdk/overview/)
-- [ROBOTIS e-Manual for Dynamixel Workbench](http://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_workbench/)
-- [Website for TurtleBot Series](http://www.turtlebot.com/)
-- [e-Book for TurtleBot3](https://community.robotsource.org/t/download-the-ros-robot-programming-book-for-free/51/)
-- [Videos for TurtleBot3](https://www.youtube.com/playlist?list=PLRG6WP3c31_XI3wlvHlx2Mp8BYqgqDURU)
-# dqn
+---
+
+## Installation
+
+### Ubuntu Installation
+1. Download Ubuntu 22.04 LTS Desktop image from the official [Ubuntu website](https://ubuntu.com/download/desktop).
+2. Follow the [Ubuntu installation guide](https://ubuntu.com/tutorials/install-ubuntu-desktop) to set up Ubuntu on your PC.
+
+### ROS2 Installation
+1. Install ROS2 Humble by following the [official ROS2 documentation](https://docs.ros.org/en/humble/Installation.html). The Debian package installation method is recommended for Linux users.
+
+### Dependent ROS2 Packages
+Install the required ROS2 packages for Gazebo, Cartographer, and Navigation2:
+
+```bash
+# Install Gazebo
+sudo apt install ros-humble-gazebo-*
+
+# Install Cartographer
+sudo apt install ros-humble-cartographer
+sudo apt install ros-humble-cartographer-ros
+
+# Install Navigation2
+sudo apt install ros-humble-navigation2
+sudo apt install ros-humble-nav2-bringup
