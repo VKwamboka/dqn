@@ -1,6 +1,6 @@
 # Multi-Agent Reinforcement Learning for TurtleBot3 Using ROS2 Humble and Gazebo
 
-![TurtleBot3 gazebo Image](/src/turtlebot3_machine_learning/turtlebot3_dqn/resource/images/gazebo.png)
+![TurtleBot3 gazebo Image](../src/turtlebot3_machine_learning/turtlebot3_dqn/resource/images/gazebo.png)
 
 
 ## Overview
