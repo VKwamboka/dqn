@@ -64,7 +64,7 @@ class DQNGazebo(Node):
 
         # Publishers
         self.goal_pose_pub = [
-            self.create_publisher(Pose, f'goal_pose_{i}', qos) for i in range(num_agents)
+            self.create_publisher(Pose, f'robot{i}/goal_pose', qos) for i in range(num_agents)
         ]
 
         # Clients
