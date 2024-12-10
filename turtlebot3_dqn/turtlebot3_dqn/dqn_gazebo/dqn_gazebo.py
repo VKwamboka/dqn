@@ -72,12 +72,20 @@ class DQNGazebo(Node):
         self.spawn_entity_client = self.create_client(SpawnEntity, 'spawn_entity')
         self.reset_simulation_client = self.create_client(Empty, 'reset_simulation')
 
+        # Namespace for the agent
+        # namespace = f'/robot{self.agent_id}'
+
         # Servers
         self.task_succeed_server = self.create_service(
             Empty,
-            'task_succeed',
+            f'robot0/task_succeed',
             self.task_succeed_callback)
-        self.task_fail_server = self.create_service(Empty, 'task_fail', self.task_fail_callback)
+        self.task_fail_server = self.create_service(Empty, f'robot0/task_fail', self.task_fail_callback)
+        self.task_succeed_server = self.create_service(
+            Empty,
+            f'robot1/task_succeed',
+            self.task_succeed_callback)
+        self.task_fail_server = self.create_service(Empty, f'robot1/task_fail', self.task_fail_callback)
 
         # Timer
         self.publish_timer = self.create_timer(0.010, self.publish_callback)
