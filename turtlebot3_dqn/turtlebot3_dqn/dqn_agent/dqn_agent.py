@@ -336,7 +336,9 @@ from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.optimizers import RMSprop
 import rclpy
 from rclpy.node import Node
-from turtlebot3_msgs.srv import Dqn  # Adjust based on your actual service message type
+from turtlebot3_msgs.srv import Dqn  
+from rclpy.executors import MultiThreadedExecutor
+
 
 class DQNAgent(Node):
     def __init__(self, agent_id, stage):
@@ -386,7 +388,16 @@ class DQNAgent(Node):
         """************************************************************
         ** Initialise ROS clients for each agent
         ************************************************************"""
-        self.dqn_com_client = self.create_client(Dqn, f'robot{self.agent_id}/dqn_com')
+        # self.dqn_com_client = self.create_client(Dqn, f'robot{self.agent_id}/dqn_com')
+        num_agents = 2  # Replace with the number of agents you want to initialize
+
+        # for agent_id in range(num_agents):
+        #     agent_name = f'robot{agent_id}'
+        #     self.dqn_com_client = self.create_client(Dqn, f'{agent_name}/dqn_com')
+
+        namespace = f'/robot{self.agent_id}'
+        self.dqn_com_client = self.create_client(
+            Dqn, f'{namespace}/dqn_com')
 
         """************************************************************
         ** Start process
@@ -540,13 +551,44 @@ class DQNAgent(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    # Example for 2 agents
-    num_agents = 2
-    for agent_id in range(num_agents):
-        dqn_agent = DQNAgent(agent_id, stage=1)
-        rclpy.spin(dqn_agent)
+    # Create a MultiThreadedExecutor
+    executor = MultiThreadedExecutor()
 
-    rclpy.shutdown()
+    # Create multiple agents and add them to the executor
+    agents = []
+    for i in range(2):  # Modify the range to add more agents
+        agent = DQNAgent(agent_id=i, stage=1)
+        agents.append(agent)
+        executor.add_node(agent)
+
+    try:
+        # Spin the executor (handles multiple nodes concurrently)
+        executor.spin()
+    finally:
+        # Shutdown nodes and executor
+        for agent in agents:
+            agent.destroy_node()
+        rclpy.shutdown()
+# def main(args=None):
+#     rclpy.init(args=args)
+
+#     # Number of agents
+#     num_agents = 2
+
+#     # Initialize DQN agents
+#     agents = [DQNAgent(agent_id=i, stage=1) for i in range(num_agents)]
+
+#     try:
+#         while rclpy.ok():
+#             # Sequentially spin each agent
+#             for agent in agents:
+#                 rclpy.spin_once(agent, timeout_sec=0.1)
+#     finally:
+#         # Cleanup
+#         for agent in agents:
+#             agent.destroy_node()
+#         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

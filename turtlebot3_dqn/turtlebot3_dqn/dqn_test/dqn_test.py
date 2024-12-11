@@ -25,7 +25,6 @@ from keras.models import load_model
 from keras.optimizers import RMSprop
 from keras.losses import MeanSquaredError
 
-
 import json
 import numpy
 import os
@@ -38,9 +37,8 @@ from rclpy.node import Node
 
 from turtlebot3_msgs.srv import Dqn
 
-
 class DQNTest(Node):
-    def __init__(self, stage):
+    def __init__(self, stage, agent_count):
         super().__init__('dqn_test')
 
         """************************************************************
@@ -49,12 +47,15 @@ class DQNTest(Node):
         # Stage
         self.stage = int(stage)
 
+        # Number of agents
+        self.agent_count = int(agent_count)
+
         # State size and action size
         self.state_size = 4
         self.action_size = 5
         self.episode_size = 3000
 
-        # DQN hyperparameter
+        # DQN hyperparameters
         self.discount_factor = 0.99
         self.learning_rate = 0.00025
         self.epsilon = 1.0
@@ -66,34 +67,39 @@ class DQNTest(Node):
         # Replay memory
         self.memory = collections.deque(maxlen=1000000)
 
-        # Build model and target model
-        self.model = self.build_model()
-        self.target_model = self.build_model()
+        # Build model and target model for each agent
+        self.models = [self.build_model() for _ in range(self.agent_count)]
+        self.target_models = [self.build_model() for _ in range(self.agent_count)]
 
         # Load saved models
         self.load_model = True
-        self.load_episode = 0
+        self.load_episode = 400
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_test',
             'model')
-        self.model_path = os.path.join(
-            self.model_dir_path,
-            'stage'+str(self.stage)+'_episode'+str(self.load_episode)+'.h5')
 
         if self.load_model:
-            self.model.set_weights(load_model(self.model_path).get_weights())
-            with open(os.path.join(
+            for i in range(self.agent_count):
+                model_path = os.path.join(
                     self.model_dir_path,
-                    'stage'+str(self.stage)+'_episode'+str(self.load_episode)+'.json')) as outfile:
-                param = json.load(outfile)
-                self.epsilon = param.get('epsilon')
+                    f'stage{self.stage}_episode{self.load_episode}.h5')
+                self.models[i].set_weights(load_model(model_path).get_weights())
+
+                param_path = os.path.join(
+                    self.model_dir_path,
+                    f'stage{self.stage}_episode{self.load_episode}.json')
+                with open(param_path) as outfile:
+                    param = json.load(outfile)
+                    self.epsilon = param.get('epsilon')
 
         """************************************************************
         ** Initialise ROS clients
         ************************************************************"""
-        # Initialise clients
-        self.dqn_com_client = self.create_client(Dqn, 'dqn_com')
+        # Initialise clients for each agent
+        self.dqn_com_clients = [
+            self.create_client(Dqn, f'robot{i}/dqn_com') for i in range(self.agent_count)
+        ]
 
         """************************************************************
         ** Start process
@@ -106,58 +112,61 @@ class DQNTest(Node):
     def process(self):
         global_step = 0
 
-        for episode in range(self.load_episode+1, self.episode_size):
+        for episode in range(self.load_episode + 1, self.episode_size):
             global_step += 1
             local_step = 0
 
-            state = list()
-            next_state = list()
-            done = False
-            init = True
-            score = 0
+            states = [[] for _ in range(self.agent_count)]
+            next_states = [[] for _ in range(self.agent_count)]
+            dones = [False] * self.agent_count
+            inits = [True] * self.agent_count
+            scores = [0] * self.agent_count
 
             # Reset DQN environment
             time.sleep(1.0)
 
-            while not done:
+            while not all(dones):
                 local_step += 1
 
-                # Aciton based on the current state
-                if local_step == 1:
-                    action = 2  # Move forward
-                else:
-                    state = next_state
-                    action = int(self.get_action(state))
+                for i in range(self.agent_count):
+                    if dones[i]:
+                        continue
 
-                # Send action and receive next state and reward
-                req = Dqn.Request()
-                print(int(action))
-                req.action = action
-                req.init = init
-                while not self.dqn_com_client.wait_for_service(timeout_sec=1.0):
-                    self.get_logger().info('service not available, waiting again...')
+                    # Action based on the current state
+                    if local_step == 1:
+                        action = 2  # Move forward
+                    else:
+                        states[i] = next_states[i]
+                        action = int(self.get_action(states[i], i))
 
-                future = self.dqn_com_client.call_async(req)
+                    # Send action and receive next state and reward
+                    req = Dqn.Request()
+                    req.action = action
+                    req.init = inits[i]
 
-                while rclpy.ok():
-                    rclpy.spin_once(self)
-                    if future.done():
-                        if future.result() is not None:
-                            # Next state and reward
-                            next_state = future.result().state
-                            reward = future.result().reward
-                            done = future.result().done
-                            score += reward
-                            init = False
-                        else:
-                            self.get_logger().error(
-                                'Exception while calling service: {0}'.format(future.exception()))
-                        break
+                    while not self.dqn_com_clients[i].wait_for_service(timeout_sec=1.0):
+                        self.get_logger().info(f'Service for agent {i} not available, waiting again...')
+
+                    future = self.dqn_com_clients[i].call_async(req)
+
+                    while rclpy.ok():
+                        rclpy.spin_once(self)
+                        if future.done():
+                            if future.result() is not None:
+                                # Next state and reward
+                                next_states[i] = future.result().state
+                                reward = future.result().reward
+                                dones[i] = future.result().done
+                                scores[i] += reward
+                                inits[i] = False
+                            else:
+                                self.get_logger().error(
+                                    f'Exception while calling service for agent {i}: {future.exception()}')
+                            break
 
                 # While loop rate
                 time.sleep(0.01)
 
-    
     def build_model(self):
         model = Sequential()
         model.add(Dense(
@@ -174,73 +183,25 @@ class DQNTest(Node):
 
         return model
 
-    def get_action(self, state):
+    def get_action(self, state, agent_idx):
         if numpy.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         else:
             state = numpy.asarray(state)
-            q_value = self.model.predict(state.reshape(1, len(state)))
-            print(numpy.argmax(q_value[0]))
+            q_value = self.models[agent_idx].predict(state.reshape(1, len(state)))
             return numpy.argmax(q_value[0])
 
-    def train_model(self, target_train_start=False):
-        mini_batch = random.sample(self.memory, self.batch_size)
-        x_batch = numpy.empty((0, self.state_size), dtype=numpy.float64)
-        y_batch = numpy.empty((0, self.action_size), dtype=numpy.float64)
-
-        for i in range(self.batch_size):
-            state = numpy.asarray(mini_batch[i][0])
-            action = numpy.asarray(mini_batch[i][1])
-            reward = numpy.asarray(mini_batch[i][2])
-            next_state = numpy.asarray(mini_batch[i][3])
-            done = numpy.asarray(mini_batch[i][4])
-
-            q_value = self.model.predict(state.reshape(1, len(state)))
-            self.max_q_value = numpy.max(q_value)
-
-            if not target_train_start:
-                target_value = self.model.predict(next_state.reshape(1, len(next_state)))
-            else:
-                target_value = self.target_model.predict(next_state.reshape(1, len(next_state)))
-
-            if done:
-                next_q_value = reward
-            else:
-                next_q_value = reward + self.discount_factor * numpy.amax(target_value)
-
-            x_batch = numpy.append(x_batch, numpy.array([state.copy()]), axis=0)
-
-            y_sample = q_value.copy()
-            y_sample[0][action] = next_q_value
-            y_batch = numpy.append(y_batch, numpy.array([y_sample[0]]), axis=0)
-
-            if done:
-                x_batch = numpy.append(x_batch, numpy.array([next_state.copy()]), axis=0)
-                y_batch = numpy.append(y_batch, numpy.array([[reward] * self.action_size]), axis=0)
-
-        self.model.fit(x_batch, y_batch, batch_size=self.batch_size, epochs=1, verbose=0)
-
-
-# def main(args=sys.argv[1]):
-#     rclpy.init(args=args)
-#     dqn_test = DQNTest(args)
-#     rclpy.spin(dqn_test)
-
-#     dqn_test.destroy()
-#     rclpy.shutdown()
-
-
-# if __name__ == '__main__':
-#     main()
 def main(args=sys.argv[1:]):
     rclpy.init(args=args)
 
-    if len(args) > 0:
-        stage = args[0]  
+    if len(args) > 1:
+        stage = args[0]
+        agent_count = args[1]
     else:
-        stage = 1  # Default stage value
+        stage = 2  # Default stage value
+        agent_count = 2  # Default agent count
 
-    dqn_agent = DQNTest(stage)
+    dqn_agent = DQNTest(stage, agent_count)
     rclpy.spin(dqn_agent)
 
     dqn_agent.destroy()
