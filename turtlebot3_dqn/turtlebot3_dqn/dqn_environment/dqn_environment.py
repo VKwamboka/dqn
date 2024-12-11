@@ -285,7 +285,7 @@ def main(args=None):
 
     # Create multiple agents and add them to the executor
     agents = []
-    for i in range(2):  # Modify the range to add more agents
+    for i in range(1):  # Modify the range to add more agents
         agent = DQNEnvironment(agent_id=i)
         agents.append(agent)
         executor.add_node(agent)

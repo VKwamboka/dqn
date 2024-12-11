@@ -30,7 +30,7 @@ from std_srvs.srv import Empty
 
 
 class DQNGazebo(Node):
-    def __init__(self, stage, num_agents=2):
+    def __init__(self, stage, num_agents=1):
         super().__init__('dqn_gazebo')
 
         """************************************************************

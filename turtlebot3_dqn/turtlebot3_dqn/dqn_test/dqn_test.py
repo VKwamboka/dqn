@@ -73,7 +73,7 @@ class DQNTest(Node):
 
         # Load saved models
         self.load_model = True
-        self.load_episode = 400
+        self.load_episode = 1100
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_test',
