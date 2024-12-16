@@ -18,6 +18,8 @@
 
 import math
 import numpy
+import csv
+
 
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import Twist
@@ -63,6 +65,25 @@ class DQNEnvironment(Node):
 
         self.local_step = 0
 
+        self.agent_id = agent_id
+        self.collision_count = 0
+        self.global_goal_counter = 0
+        self.global_collision_counter = 0
+        self.goal_count = 0
+        self.episode_count = 0
+        self.log_interval = 5
+        self.cumulative_data = []
+
+        
+
+        # File for logging
+        self.log_file = "/home/kwamboka/dqn_ws/src/turtlebot3_machine_learning/turtlebot3_dqn/resource/goalcollisions.log"
+
+         # Write CSV headers
+        with open(self.log_file, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Episode', 'Goals', 'Collisions', 'Stage', 'Num_Agents'])
+
         """************************************************************
         ** Initialise ROS publishers and subscribers
         ************************************************************"""
@@ -97,25 +118,7 @@ class DQNEnvironment(Node):
             Empty, f'{namespace}/task_succeed')
         self.task_fail_client = self.create_client(
             Empty, f'{namespace}/task_fail')
-        
 
-        # self.subscription = self.create_subscription(
-        #     Imu,
-        #     '/robot1/imu',
-        #     self.imu_callback,
-        #     10  # QoS profile
-        # )
-        # self.subscription
-
-        # self.subscription = self.create_subscription(
-        #     Imu,
-        #     '/robot0/imu',
-        #     self.imu_callback,
-        #     10  # QoS profile
-        # )
-        # self.subscription
-
-        # Initialise servers
         self.dqn_com_server = self.create_service(
             Dqn, f'{namespace}/dqn_com', self.dqn_com_callback)
 
@@ -165,41 +168,107 @@ class DQNEnvironment(Node):
 
         # Succeed
         if self.goal_distance < 0.20:  # unit: m
-            print("Goal! :)")
+            print(f"Agent {self.agent_id}: Goal! :)")
+            self.goal_count += 1
+            self.global_goal_counter += 1
             self.succeed = True
             self.done = True
+            self.log_data()  # Log the data
             self.cmd_vel_pub.publish(Twist())  # robot stop
             self.local_step = 0
             req = Empty.Request()
+            # self.reset()
             while not self.task_succeed_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().info('service not available, waiting again...')
             self.task_succeed_client.call_async(req)
 
         # Fail
         if self.min_obstacle_distance < 0.13:  # unit: m
-            print("Collision! :(")
+            print(f"Agent {self.agent_id}: Collision! :(")
+            self.collision_count += 1
+            self.global_collision_counter += 1
             self.fail = True
             self.done = True
+            self.log_data()
             self.cmd_vel_pub.publish(Twist())  # robot stop
             self.local_step = 0
+            # self.reset()
             req = Empty.Request()
             while not self.task_fail_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().info('service not available, waiting again...')
             self.task_fail_client.call_async(req)
 
         if self.local_step == 500:
-            print("Time out! :(")
+            print(f"Agent {self.agent_id}: Time out! :(")
             self.done = True
             self.local_step = 0
             req = Empty.Request()
+            # self.reset()
             while not self.task_fail_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().info('service not available, waiting again...')
             self.task_fail_client.call_async(req)
 
         return state
+    
+    def log_data(self):
+        self.episode_count += 1
+
+        # Log data every `log_interval` episodes
+        if self.episode_count % self.log_interval == 0:
+            entry = {
+                'Episode': self.episode_count,
+                'Goals': self.global_goal_counter,
+                'Collisions': self.global_collision_counter,
+                'Stage': '4',
+                'Num_Agents': 4  # Adjust if you add more agents
+            }
+
+            self.cumulative_data.append(entry)
+
+            # Save to CSV
+            with open(self.log_file, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([
+                    entry['Episode'],
+                    entry['Goals'],
+                    entry['Collisions'],
+                    entry['Stage'],
+                    entry['Num_Agents']
+                ])
+
+            print(f"Logged data: {entry}")
+
+            # Reset counters
+            self.goal_count = 0
+            self.collision_count = 0
 
     def reset(self):
-        return self.state
+        """
+        Resets each agent to its initial state.
+        """
+        # Reset agent-specific variables
+        self.done = False
+        self.succeed = False
+        self.fail = False
+        self.local_step = 0
+        self.goal_count = 0
+        self.collision_count = 0
+        self.goal_pose_x = 0
+        self.goal_pose_y = 0
+        self.last_pose_x = 0
+        self.last_pose_y = 0
+        self.goal_distance = 1  # Reset goal distance (or set to initial value)
+        self.goal_angle = 0  # Reset goal angle
+        
+        # Reset other agent-specific states (e.g., sensors, odometry, etc.)
+        self.scan_ranges = []
+        self.min_obstacle_distance = 10  # Set to a large value initially
+        self.min_obstacle_angle = 0
+        
+        # Optionally reset the robot's position in the environment
+    
+    
+        
 
     def imu_callback(self, msg):
         # Process the IMU message
@@ -280,12 +349,15 @@ class DQNEnvironment(Node):
 def main(args=None):
     rclpy.init(args=args)
 
+    # Global counters for goals and collisions
+
+
     # Create a MultiThreadedExecutor
     executor = MultiThreadedExecutor()
 
     # Create multiple agents and add them to the executor
     agents = []
-    for i in range(1):  # Modify the range to add more agents
+    for i in range(4):  # Modify the range to add more agents
         agent = DQNEnvironment(agent_id=i)
         agents.append(agent)
         executor.add_node(agent)

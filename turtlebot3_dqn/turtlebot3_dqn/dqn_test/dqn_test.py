@@ -73,7 +73,8 @@ class DQNTest(Node):
 
         # Load saved models
         self.load_model = True
-        self.load_episode = 1100
+        self.load_episode = 1240
+        # self.load_episode = 300
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_test',
@@ -111,6 +112,11 @@ class DQNTest(Node):
     *******************************************************************************"""
     def process(self):
         global_step = 0
+        cumulative_reward_log_file = "/home/kwamboka/dqn_ws/src/turtlebot3_machine_learning/turtlebot3_dqn/rewards.log"
+
+        # Create or overwrite the cumulative reward log file
+        with open(cumulative_reward_log_file, 'w') as log_file:
+            log_file.write("Stage,Episode,Agent,Cumulative_Reward\n")
 
         for episode in range(self.load_episode + 1, self.episode_size):
             global_step += 1
@@ -120,7 +126,9 @@ class DQNTest(Node):
             next_states = [[] for _ in range(self.agent_count)]
             dones = [False] * self.agent_count
             inits = [True] * self.agent_count
-            scores = [0] * self.agent_count
+            scores = [0] * self.agent_count  # To track cumulative rewards for agents
+
+            self.get_logger().info(f"Starting episode {episode}...")
 
             # Reset DQN environment
             time.sleep(1.0)
@@ -157,15 +165,27 @@ class DQNTest(Node):
                                 next_states[i] = future.result().state
                                 reward = future.result().reward
                                 dones[i] = future.result().done
-                                scores[i] += reward
+                                scores[i] += reward  # Add to cumulative reward
                                 inits[i] = False
                             else:
                                 self.get_logger().error(
                                     f'Exception while calling service for agent {i}: {future.exception()}')
                             break
 
-                # While loop rate
-                time.sleep(0.01)
+                    # While loop rate
+                    time.sleep(0.01)
+
+            # Log cumulative rewards after the episode ends
+            with open(cumulative_reward_log_file, 'a') as log_file:
+                for i in range(self.agent_count):
+                    log_file.write(f"{self.stage},{episode},{i},{scores[i]}\n")
+
+            self.get_logger().info(f"Episode {episode} completed. Cumulative Rewards: {scores}")
+
+        self.get_logger().info(f"Cumulative reward logs saved to: {cumulative_reward_log_file}")
+
+
+
 
     def build_model(self):
         model = Sequential()
@@ -198,8 +218,8 @@ def main(args=sys.argv[1:]):
         stage = args[0]
         agent_count = args[1]
     else:
-        stage = 2  # Default stage value
-        agent_count = 2  # Default agent count
+        stage = 4  # Default stage value
+        agent_count = 4 # Default agent count
 
     dqn_agent = DQNTest(stage, agent_count)
     rclpy.spin(dqn_agent)

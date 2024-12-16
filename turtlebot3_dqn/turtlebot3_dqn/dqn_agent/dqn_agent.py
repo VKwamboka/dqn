@@ -47,7 +47,6 @@ class DQNAgent(Node):
         log_file_path = os.path.join(log_directory, log_filename)
         logging.basicConfig(filename=log_file_path, level=logging.INFO)
 
-        # logging.basicConfig(filename='simulation_results.log', level=logging.INFO)
 
         """************************************************************
         ** Initialise variables
@@ -82,9 +81,9 @@ class DQNAgent(Node):
         # Load saved models
         self.load_model = False
         # self.load_episode = 1210   #model 4
-        # self.load_episode =230 #model 1
+        self.load_episode =300 #model 1
         # self.load_episode = 400   #stage 2
-        self.load_episode = 1000 
+        # self.load_episode = 1240 
         self.model_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.model_dir_path = self.model_dir_path.replace(
             'turtlebot3_dqn/dqn_agent',
@@ -94,15 +93,7 @@ class DQNAgent(Node):
             'stage'+str(self.stage)+'_episode'+str(self.load_episode)+'.h5')
 
         if self.load_model:
-            # self.model_path = self.model_path.replace('.h5', '.keras')
-            # self.model = load_model(self.model_path)
-            # print(f"Loaded model from {self.model_path}")
-            # self.model.set_weights(load_model(self.model_path).get_weights())
-            # with open(os.path.join(
-            #         self.model_dir_path,
-            #         'stage'+str(self.stage)+'_episode'+str(self.load_episode)+'.json')) as outfile:
-            #     param = json.load(outfile)
-            #     self.epsilon = param.get('epsilon')
+      
             self.model.set_weights(load_model(self.model_path).get_weights())
             with open(os.path.join(
                     self.model_dir_path,
@@ -205,14 +196,11 @@ class DQNAgent(Node):
                         # Log data for each episode
                         self.log_data(episode, score, self.epsilon)
 
-                # While loop rate
                 time.sleep(0.01)
 
             # Update result and save model every 10 episodes
             if episode % 10 == 0:
-                # param_keys = ['epsilon']
-                # param_values = [self.epsilon]
-                # param_dictionary = dict(zip(param_keys, param_values))
+                
 
                 self.model_path = os.path.join(
                     self.model_dir_path,
@@ -224,7 +212,6 @@ class DQNAgent(Node):
                         'stage'+str(self.stage)+'_episode'+str(episode)+'.json'), 'w') as outfile:
                     json.dump(param_dictionary, outfile)
 
-            # Epsilon
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
 
@@ -298,13 +285,7 @@ class DQNAgent(Node):
         self.model.fit(x_batch, y_batch, batch_size=self.batch_size, epochs=1, verbose=0)
 
 
-# def main(args=sys.argv[1:]):
-#     rclpy.init(args=args)
-#     dqn_agent = DQNAgent(args)
-#     rclpy.spin(dqn_agent)
 
-#     dqn_agent.destroy()
-#     rclpy.shutdown()
 def main(args=sys.argv[1:]):
     rclpy.init(args=args)
 
